@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#080c12">
+<title>CHART VIEWER — STATUS / Dear Otaku, IV</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+JP:wght@400;700&display=swap');
+:root {
+  --bg:#080c12; --panel:#0c1018; --border:#1a2535;
+  --up:#4da6ff; --dn:#ff4466;
+  --ma1:#00ff88; --ma2:#ffd700; --ma3:#ff8844;
+  --gold:#ffd700; --dim:rgba(255,255,255,0.4);
+  --text:#ccddef; --green:#00ff88; --danger:#ff2244;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Share Tech Mono',monospace;
+  display:flex;flex-direction:column;
+  height:100dvh;
+}
+/* ── TOP BAR ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 10px;background:#05080e;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.app-title{font-size:0.95rem;color:var(--gold);letter-spacing:0.1em;}
+.app-sub{font-size:0.45rem;color:var(--dim);}
+.price-block{text-align:right;}
+.price-pair{font-size:0.5rem;color:var(--dim);}
+.price-main{font-size:1.1rem;font-weight:bold;transition:color 0.2s;}
+.price-chg{font-size:0.58rem;}
+
+/* ── LAYOUT BAR ── */
+.bar{
+  display:flex;align-items:center;gap:5px;
+  padding:3px 8px;background:#05080e;
+  border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;
+}
+.bar-label{font-size:0.45rem;color:var(--dim);letter-spacing:0.1em;white-space:nowrap;}
+.xbtn{
+  padding:2px 8px;font-size:0.55rem;
+  border:1px solid var(--border);background:transparent;
+  color:var(--dim);cursor:pointer;border-radius:3px;
+  font-family:'Share Tech Mono',monospace;transition:all 0.15s;white-space:nowrap;
+}
+.xbtn:hover,.xbtn.on{border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,0.08);}
+.xbtn.play{background:linear-gradient(135deg,#0055cc,#003388);color:white;border-color:#0066ff;min-width:60px;}
+.xbtn.play:hover{background:linear-gradient(135deg,#0077ff,#0055cc);}
+
+/* ── CHARTS GRID ── */
+.grid{
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
+  flex:1;gap:1px;background:var(--border);min-height:0;overflow:hidden;
+}
+.grid.l1{grid-template-columns:1fr;grid-template-rows:1fr;}
+.grid.l2h{grid-template-columns:1fr 1fr;grid-template-rows:1fr;}
+.grid.l2v{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}
+.grid.l3{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+.grid.l4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+
+.panel{
+  background:var(--panel);display:flex;flex-direction:column;
+  min-height:0;overflow:hidden;position:relative;
+}
+/* Hide panels based on layout */
+.grid.l1 .panel:nth-child(n+2){display:none;}
+.grid.l2h .panel:nth-child(n+3){display:none;}
+.grid.l2v .panel:nth-child(n+3){display:none;}
+.grid.l3 .panel:nth-child(4){display:none;}
+.grid.l3 .panel:nth-child(3){grid-column:1/3;}
+
+.ph{ /* panel header */
+  display:flex;align-items:center;gap:5px;
+  padding:3px 7px;background:rgba(0,0,0,0.5);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.ph select{
+  font-family:'Share Tech Mono',monospace;font-size:0.58rem;
+  background:#080e1a;color:var(--gold);
+  border:1px solid rgba(255,215,0,0.25);padding:1px 3px;
+  border-radius:3px;outline:none;
+}
+.ph-angle{font-size:0.6rem;font-weight:bold;margin-left:auto;}
+
+.mah{ /* MA header */
+  display:flex;align-items:center;gap:4px;
+  padding:2px 7px;background:rgba(0,0,0,0.3);
+  border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;
+}
+.mg{display:flex;align-items:center;gap:2px;}
+.mdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.ml{font-size:0.42rem;color:var(--dim);}
+.mi{
+  width:30px;font-family:'Share Tech Mono',monospace;font-size:0.58rem;
+  background:#080e1a;color:var(--gold);
+  border:1px solid rgba(255,215,0,0.2);
+  padding:1px 2px;border-radius:2px;outline:none;text-align:center;
+}
+.mi:focus{border-color:rgba(255,215,0,0.6);}
+.meye{
+  font-size:0.5rem;background:transparent;border:none;
+  cursor:pointer;opacity:0.65;padding:0 1px;line-height:1;
+}
+.meye:hover{opacity:1;}
+.meye.off{opacity:0.2;}
+
+.ptag{ /* price tag on chart */
+  position:absolute;right:2px;z-index:5;
+  font-size:0.55rem;background:rgba(255,215,0,0.15);
+  color:var(--gold);padding:1px 4px;border-radius:2px;
+  border:1px solid rgba(255,215,0,0.3);
+}
+canvas{display:block;flex:1;width:100%;min-height:0;}
+
+/* ── ANALYZER STRIP ── */
+.astrip{
+  display:flex;align-items:center;gap:5px;
+  padding:3px 8px;background:#05080e;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;overflow-x:auto;scrollbar-width:none;
+}
+.astrip::-webkit-scrollbar{display:none;}
+.atitle{font-size:0.5rem;color:rgba(100,180,255,0.8);letter-spacing:0.15em;white-space:nowrap;}
+.hcs{font-size:0.9rem;white-space:nowrap;}
+.achips{display:flex;gap:3px;}
+.ac{
+  padding:2px 5px;border-radius:3px;font-size:0.56rem;
+  background:rgba(255,255,255,0.05);border:1px solid transparent;white-space:nowrap;
+}
+.apills{display:flex;gap:4px;margin-left:auto;}
+.pill{
+  padding:2px 9px;border-radius:12px;font-size:0.68rem;white-space:nowrap;
+}
+.pfake{background:rgba(0,255,136,0.1);color:var(--green);border:1px solid rgba(0,255,136,0.3);}
+.ppanic{background:rgba(255,34,68,0.1);color:var(--danger);border:1px solid rgba(255,34,68,0.3);}
+
+/* ── PLAYBACK BAR ── */
+.pbar{
+  display:flex;flex-direction:column;gap:5px;
+  padding:5px 8px;background:#05080e;
+  border-top:1px solid var(--border);flex-shrink:0;
+  padding-bottom:max(5px,env(safe-area-inset-bottom));
+}
+.prow{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+
+/* ── SPREAD BAR ── */
+.sbar{
+  display:flex;align-items:center;gap:6px;
+  padding:3px 8px;background:#05080e;
+  border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;
+}
+.sinp{
+  width:40px;font-family:'Share Tech Mono',monospace;font-size:0.62rem;
+  background:#080e1a;color:var(--gold);
+  border:1px solid rgba(255,215,0,0.25);
+  padding:2px 3px;border-radius:3px;outline:none;text-align:center;
+}
+.bidask{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:0.6rem;}
+.bid{color:var(--dn);}
+.ask{color:var(--up);}
+.spreadlive{font-size:0.52rem;color:var(--gold);}
+
+/* ── CSV BAR ── */
+.csvbar{
+  display:flex;align-items:center;gap:6px;
+  padding:3px 8px;background:rgba(0,80,200,0.08);
+  border-top:1px solid rgba(0,150,255,0.15);flex-shrink:0;flex-wrap:wrap;
+}
+.csvbtn{
+  padding:3px 10px;font-size:0.68rem;
+  background:linear-gradient(135deg,#0055cc,#0033aa);
+  color:white;border:none;border-radius:3px;cursor:pointer;white-space:nowrap;
+}
+.csvbtn:hover{background:linear-gradient(135deg,#0077ff,#0055cc);}
+.csvst{font-size:0.52rem;color:var(--dim);}
+.csvst.ok{color:var(--green);}
+.csvst.err{color:var(--danger);}
+.csvrng{display:flex;gap:4px;align-items:center;margin-left:auto;}
+.csvsel{
+  font-family:'Share Tech Mono',monospace;font-size:0.55rem;
+  background:#080e1a;color:var(--gold);
+  border:1px solid rgba(255,215,0,0.25);
+  padding:2px 4px;border-radius:3px;outline:none;
+}
+input[type=file]#csvFile{display:none;}
+
+/* ── NEWS TICKER ── */
+.ticker-wrap{
+  overflow:hidden;white-space:nowrap;background:#000;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+  padding:2px 0;
+}
+.ticker-inner{
+  display:inline-block;padding-left:100%;
+  animation:scroll-news 35s linear infinite;
+  font-size:0.52rem;color:#00ff88;letter-spacing:0.05em;
+}
+@keyframes scroll-news{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-100%);}
+}
+
+/* ── HCS GRAPH ── */
+.hcs-graph-wrap{
+  display:flex;align-items:center;gap:6px;
+  padding:2px 8px;background:#05080e;
+  border-top:1px solid var(--border);flex-shrink:0;
+}
+.hcs-graph-label{font-size:0.45rem;color:var(--dim);white-space:nowrap;}
+#hcsCanvas{height:28px;flex:1;}
+
+
+
+/* ── RESPONSIVE ── */
+@media(max-width:480px) and (orientation:portrait){
+  /* l4: 1 col, 4 rows */
+  .grid.l4{grid-template-columns:1fr;grid-template-rows:repeat(4,1fr);}
+  /* l3: 1 col, 3 rows */
+  .grid.l3{grid-template-columns:1fr;grid-template-rows:repeat(3,1fr);}
+  .grid.l3 .panel:nth-child(3){grid-column:auto;}
+  /* l2h: keep horizontal as selected */
+  /* l2v: keep vertical */
+}
+
+/* ── OBSERVATION LOG ── */
+.log-bar{display:flex;align-items:center;gap:6px;padding:3px 8px;background:#03060e;border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.log-btn{padding:3px 10px;font-size:0.62rem;background:linear-gradient(135deg,#1a3a1a,#0a2a0a);color:#00ff88;border:1px solid #00ff8844;border-radius:3px;cursor:pointer;white-space:nowrap;}
+.log-btn:hover{background:linear-gradient(135deg,#2a5a2a,#1a4a1a);}
+.log-note{font-family:'Share Tech Mono',monospace;font-size:0.6rem;background:#080e1a;color:var(--text);border:1px solid rgba(255,255,255,0.15);padding:2px 6px;border-radius:3px;outline:none;flex:1;min-width:120px;}
+.log-note::placeholder{color:var(--dim);}
+.log-rating{display:flex;gap:3px;}
+.log-star{font-size:0.8rem;cursor:pointer;opacity:0.3;transition:opacity 0.15s;background:none;border:none;padding:0;}
+.log-star.on{opacity:1;}
+.log-eval{font-size:0.9rem;cursor:pointer;opacity:0.3;transition:all 0.15s;background:none;border:none;padding:0 2px;}
+.log-eval.on{opacity:1;filter:drop-shadow(0 0 3px #ffd700);}
+.log-count{font-size:0.5rem;color:var(--dim);}
+.log-modal{position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(6px);z-index:800;display:none;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;}
+.log-modal.show{display:flex;}
+.log-card{width:min(420px,94vw);background:linear-gradient(135deg,#060d1a,#0a1a30);border:1px solid var(--border);border-radius:10px;padding:16px;animation:pop-in 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+.log-card-title{font-size:0.8rem;color:var(--gold);letter-spacing:0.15em;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+.log-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:1rem;}
+.log-table{width:100%;border-collapse:collapse;font-size:0.58rem;}
+.log-table th{text-align:left;color:var(--dim);font-weight:normal;padding:4px 6px;border-bottom:1px solid var(--border);letter-spacing:0.1em;}
+.log-table td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);vertical-align:top;}
+.log-table tr:hover td{background:rgba(255,255,255,0.03);}
+.log-hcs-hi{color:#ff4466;}.log-hcs-md{color:#ffd700;}.log-hcs-lo{color:#00ff88;}
+.log-clear-btn{margin-top:10px;width:100%;padding:6px;font-size:0.58rem;background:rgba(255,0,50,0.1);color:#ff4466;border:1px solid #ff446644;border-radius:4px;cursor:pointer;font-family:'Share Tech Mono',monospace;}
+.log-export-btn{margin-top:6px;width:100%;padding:6px;font-size:0.58rem;background:rgba(0,255,136,0.08);color:#00ff88;border:1px solid #00ff8844;border-radius:4px;cursor:pointer;font-family:'Share Tech Mono',monospace;}
+.log-empty{text-align:center;color:var(--dim);font-size:0.6rem;padding:20px;}
+
+/* ── LIGHT MODE ── */
+body.light{
+  --bg:#f0f2f5; --panel:#ffffff; --border:#d0d8e8;
+  --up:#1a6bcc; --dn:#cc2244;
+  --ma1:#009955; --ma2:#cc8800; --ma3:#cc5500;
+  --gold:#996600; --dim:rgba(0,0,0,0.4);
+  --text:#1a2535; --green:#009955; --danger:#cc2244;
+  background:var(--bg);color:var(--text);
+}
+body.light .topbar,body.light .ctrlbar,body.light .bar,
+body.light .astrip,body.light .pbar,body.light .sbar,
+body.light .csvbar,body.light .log-bar,body.light .finder-bar{
+  background:#e8ecf2;border-color:var(--border);
+}
+body.light .panel{background:#ffffff;}
+body.light .ph{background:rgba(0,0,0,0.04);}
+body.light .mah{background:rgba(0,0,0,0.03);}
+body.light .grid{background:var(--border);}
+body.light .xbtn{color:rgba(0,0,0,0.5);border-color:var(--border);}
+body.light .xbtn.on,body.light .xbtn:hover{color:var(--gold);border-color:var(--gold);background:rgba(150,100,0,0.08);}
+body.light .mi{background:#ffffff;color:#664400;border-color:rgba(0,0,0,0.2);}
+body.light .app-title{color:#664400;}
+body.light .price-main{color:#1a2535;}
+body.light canvas{background:#ffffff;}
+body.light .log-card{background:linear-gradient(135deg,#f8f9fc,#eef1f8);}
+body.light .log-note{background:#ffffff;color:#1a2535;border-color:rgba(0,0,0,0.2);}
+body.light{
+  --ma1:#007744; --ma2:#886600; --ma3:#993300;
+}
+body.light .ptag{background:rgba(150,100,0,0.12);color:#664400;border-color:rgba(150,100,0,0.3);}
+body.light .astrip,body.light .hcs-graph-wrap{background:#e8ecf2;}
+body.light .danger-overlay.safe{background:transparent;}
+body.light .danger-overlay.caution{background:transparent;}
+body.light .danger-overlay.danger{background:transparent;}
+body.light .finder-bar{background:#e0e4ec;}
+body.light .ticker-wrap{background:#f5f5f5;}
+body.light .ticker-inner{color:#009955;}
+
+/* Mode toggle button */
+.mode-btn{
+  font-family:'Share Tech Mono',monospace;font-size:0.52rem;
+  padding:1px 7px;border-radius:3px;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.15);
+  background:transparent;color:rgba(255,255,255,0.5);
+  transition:all 0.15s;white-space:nowrap;
+}
+.mode-btn:hover{border-color:var(--gold);color:var(--gold);}
+.mode-btn.hinkua{
+  border-color:rgba(204,136,255,0.7);
+  color:#cc88ff;
+  background:rgba(204,136,255,0.1);
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div>
+    <div class="app-title">📊 CHART VIEWER</div>
+    <div class="app-sub">STATUS / Dear Otaku, IV — Lukewarm Walker, A Japanese</div>
+  </div>
+  <div class="price-block">
+    <div class="price-pair" id="pairLabel">USD/JPY</div>
+    <div class="price-main" id="priceMain">—</div>
+    <div class="price-chg" id="priceChg">—</div>
+  </div>
+</div>
+
+<!-- NEWS TICKER -->
+<div class="ticker-wrap" id="tickerWrap">
+  <div class="ticker-inner" id="tickerText">　</div>
+</div>
+
+<!-- LAYOUT BAR -->
+<div class="bar">
+  <span class="bar-label">Layout:</span>
+  <button class="xbtn" onclick="setLayout('l1')" id="ll1">1 Panel</button>
+  <button class="xbtn" onclick="setLayout('l2h')" id="ll2h">2 Horiz</button>
+  <button class="xbtn" onclick="setLayout('l2v')" id="ll2v">2 Vert</button>
+  <button class="xbtn" onclick="setLayout('l3')" id="ll3">3 Panel</button>
+  <button class="xbtn on" onclick="setLayout('l4')" id="ll4">4 Panel</button>
+  <button class="xbtn" id="themeBtn" onclick="toggleTheme()" title="Toggle Light/Dark" style="margin-left:auto">🌙</button>
+  <span class="bar-label" style="margin-left:8px">Scenario:</span>
+  <button class="xbtn on" onclick="setScen('normal')" id="sn">Normal</button>
+  <button class="xbtn" onclick="setScen('fake')" id="sf">🎣 Fake</button>
+  <button class="xbtn" onclick="setScen('panic')" id="sp">💥 Panic</button>
+  <button class="xbtn" onclick="setScen('lehman')" id="sl">📉 Lehman</button>
+  <button class="xbtn" onclick="setScen('intv')" id="si">🏦 Intv</button>
+</div>
+
+<!-- CHARTS GRID -->
+<div class="grid l4" id="grid">
+  <!-- Panel 0 -->
+  <div class="panel">
+    <div class="ph">
+      <select id="tf0" onchange="setTF(0,+this.value)"></select>
+      <button class="mode-btn" id="mode0" onclick="toggleMode(0)">📊 Normal</button>
+      <div class="ph-angle" id="ang0">—</div>
+    </div>
+    <div class="mah">
+      <div class="mg"><div class="mdot" style="background:var(--ma1)"></div><span class="ml">S</span><input class="mi" id="ma00" value="5" type="number" min="1" max="500"><button class="meye" id="me00" onclick="toggleEye(0,0)">👁</button></div>
+      <div class="mg"><div class="mdot" style="background:var(--ma2)"></div><span class="ml">M</span><input class="mi" id="ma01" value="13" type="number" min="1" max="500"><button class="meye" id="me01" onclick="toggleEye(0,1)">👁</button></div>
+      <div class="mg"><div class="mdot" style="background:var(--ma3)"></div><span class="ml">L</span><input class="mi" id="ma02" value="25" type="number" min="1" max="500"><button class="meye" id="me02" onclick="toggleEye(0,2)">👁</button></div>
+    </div>
+    <div class="ptag" id="pt0" style="top:46px">—</div>
+    <canvas id="cv0"></canvas>
+  </div>
+  <!-- Panel 1 -->
+  <div class="panel">
+    <div class="ph">
+      <select id="tf1" onchange="setTF(1,+this.value)"></select>
+      <button class="mode-btn" id="mode1" onclick="toggleMode(1)">📊 Normal</button>
+      <div class="ph-angle" id="ang1">—</div>
+    </div>
+    <div class="mah">
+      <div class="mg"><div class="mdot" style="background:var(--ma1)"></div><span class="ml">S</span><input class="mi" id="ma10" value="5" type="number" min="1" max="500"><button class="meye" id="me10" onclick="toggleEye(1,0)">👁</button></div>
+      <div class="mg"><div class="mdot" style="background:var(--ma2)"></div><span class="ml">M</span><input class="mi" id="ma11" value="15" type="number" min="1" max="500"><button class="meye" id="me11" onclick="toggleEye(1,1)">👁</button></div>
+      <div class="mg"><div class="mdot" style="background:var(--ma3)"></div><span class="ml">L</span><input class="mi" id="ma12" value="30" type="number" min="1" max="500"><button class="meye" id="me12" onclick="toggleEye(1,2)">👁</button></div>
+    </div>
+    <div class="ptag" id="pt1" style="top:46px">—</div>
+    <canvas id="cv1"></canvas>
+  </div>
+  <!-- Panel 2 -->
+  <div class="panel">
+    <div class="ph">
+      <select id="tf2" onchange="setTF(2,+this.value)"></select>
+      <button class="mode-btn" id="mode2" onclick="toggleMode(2)">📊 Normal</button>
+      <div class="ph-angle" id="ang2">—</div>
+    </div>
+    <div class="mah">
+      <div class="mg"><div class="mdot" style="background:var(--ma1)"></div><span class="ml">S</span><input class="mi" id="ma20" value="7" type="number" min="1" max="500"><button class="meye" id="me20" onclick="toggleEye(2,0)">👁</button></div>
+      <div class="mg"><div class="mdot" style="background:var(--ma2)"></div><span class="ml">M</span><input class="mi" id="ma21" value="21" type="number" min="1" max="500"><button class="meye" id="me21" onclick="toggleEye(2,1)">👁</button></div>
+      <div class="mg"><div class="mdot" style="background:var(--ma3)"></div><span class="ml">L</span><input class="mi" id="ma22" value="42" type="number" min="1" max="500"><button class="meye" id="me22" onclick="toggleEye(2,2)">👁</button></div>
+    </div>
+    <div class="ptag" id="pt2" style="top:46px">—</div>
+    <canvas id="cv2"></canvas>
+  </div>
+  <!-- Panel 3 -->
+  <div class="panel">
+    <div class="ph">
+      <select id="tf3" onchange="setTF(3,+this.value)"></select>
+      <button class="mode-btn" id="mode3" onclick="toggleMode(3)">📊 Normal</button>
+      <div class="ph-angle" id="ang3">—</div>
+    </div>
+    <div class="mah">
+      <div class="mg"><div class="mdot" style="background:var(--ma1)"></div><span class="ml">S</span><input class="mi" id="ma30" value="7" type="number" min="1" max="500"><button class="meye" id="me30" onclick="toggleEye(3,0)">👁</button></div>
+      <div class="mg"><div class="mdot" style="background:var(--ma2)"></div><span class="ml">M</span><input class="mi" id="ma31" value="21" type="number" min="1" max="500"><button class="meye" id="me31" onclick="toggleEye(3,1)">👁</button></div>
+      <div class="mg"><div class="mdot" style="background:var(--ma3)"></div><span class="ml">L</span><input class="mi" id="ma32" value="42" type="number" min="1" max="500"><button class="meye" id="me32" onclick="toggleEye(3,2)">👁</button></div>
+    </div>
+    <div class="ptag" id="pt3" style="top:46px">—</div>
+    <canvas id="cv3"></canvas>
+  </div>
+</div>
+
+<!-- ANALYZER STRIP -->
+<div class="astrip">
+  <span class="atitle">PANIC ANALYZER</span>
+  <span class="hcs" id="hcsDisp">HCS: —</span>
+  <div class="achips" id="achips"></div>
+  <div class="apills">
+    <div class="pill pfake" id="pfake">🎣 —%</div>
+    <div class="pill ppanic" id="ppanic">💥 —%</div>
+  </div>
+</div>
+
+<!-- HCS GRAPH -->
+<div class="hcs-graph-wrap">
+  <span class="hcs-graph-label">HCS History</span>
+  <canvas id="hcsCanvas"></canvas>
+  <span class="hcs-graph-label" id="hcsAlert" style="color:var(--danger);display:none">⚠️ HIGH</span>
+</div>
+
+<!-- PLAYBACK BAR -->
+<div class="pbar">
+  <div class="prow">
+    <span class="bar-label">Playback:</span>
+    <button class="xbtn" onclick="seek(-60)" title="Rewind 1H">⏮1H</button>
+    <button class="xbtn" onclick="seek(-10)" title="Rewind 10m">⏪10m</button>
+    <button class="xbtn play" id="playBtn" onclick="togglePlay()">▶ Play</button>
+    <button class="xbtn" onclick="seek(10)" title="Forward 10m">10m⏩</button>
+    <button class="xbtn" onclick="seek(60)" title="Forward 1H">1H⏭</button>
+    <span class="bar-label" style="margin-left:6px">Speed:</span>
+    <button class="xbtn" onclick="setSpd(25)" id="s25">25%</button>
+    <button class="xbtn" onclick="setSpd(50)" id="s50">50%</button>
+    <button class="xbtn" onclick="setSpd(75)" id="s75">75%</button>
+    <button class="xbtn on" onclick="setSpd(100)" id="s100">100%</button>
+    <button class="xbtn" onclick="setSpd(125)" id="s125">125%</button>
+    <button class="xbtn" onclick="setSpd(150)" id="s150">150%</button>
+    <span class="bar-label" id="playhead" style="margin-left:auto;color:var(--gold)">—</span>
+  </div>
+</div>
+
+<!-- SPREAD BAR -->
+<div class="sbar">
+  <span class="bar-label">Spread:</span>
+  <input class="sinp" id="sprdInp" type="number" value="0.3" min="0" max="100" step="0.1" onchange="setSprd(+this.value)">
+  <span class="bar-label">pips</span>
+  <button class="xbtn" onclick="setSprd(0.3)" id="sp03">Premium</button>
+  <button class="xbtn" onclick="setSprd(1.0)" id="sp10">Standard</button>
+  <button class="xbtn" onclick="setSprd(3.0)" id="sp30">News Event</button>
+  <button class="xbtn" onclick="setSprd(10.0)" id="sp100">Panic</button>
+  <button class="xbtn" onclick="setSprd(30.0)" id="sp300">Intervention</button>
+  <div class="bidask">
+    <span>BID <span class="bid" id="bidV">—</span></span>
+    <span class="spreadlive" id="sprdLive">↔—pips</span>
+    <span>ASK <span class="ask" id="askV">—</span></span>
+  </div>
+</div>
+
+<!-- OBSERVATION LOG BAR -->
+<div class="log-bar">
+  <span class="bar-label">📋 LOG:</span>
+  <input class="log-note" id="logNote" type="text" placeholder="Add observation note..." maxlength="80">
+  <div class="log-rating">
+    <button class="log-eval" onclick="setEval('correct')" id="ev-c" title="Correct read">✅</button>
+    <button class="log-eval" onclick="setEval('wait-right')" id="ev-wr" title="No Trade — right call (休むも相場)">⏸✓</button>
+    <button class="log-eval" onclick="setEval('wait-miss')" id="ev-wm" title="No Trade — missed opportunity">⏸?</button>
+    <button class="log-eval" onclick="setEval('wrong')" id="ev-w" title="Wrong read">❌</button>
+  </div>
+  <button class="log-btn" id="saveLogBtn" onclick="saveLog()">✚ Save</button>
+  <button class="log-btn" onclick="showLogModal()">📋 View Log</button>
+  <span class="log-count" id="logCount">0 entries</span>
+</div>
+<!-- LOG MODAL -->
+<div class="log-modal" id="logModal">
+  <div class="log-card">
+    <div class="log-card-title">
+      <span>📋 OBSERVATION LOG</span>
+      <button class="log-close" onclick="hideLogModal()">✕</button>
+    </div>
+    <div id="logTableWrap"></div>
+    <button class="log-export-btn" onclick="exportLog()">⬇ Export CSV</button>
+    <button class="log-clear-btn" onclick="clearLog()">🗑 Clear All</button>
+  </div>
+</div>
+<!-- CSV BAR -->
+<div class="csvbar">
+  <span class="bar-label">📂 DATA:</span>
+  <button class="csvbtn" onclick="document.getElementById('csvFile').click()">Open CSV</button>
+  <input type="file" id="csvFile" accept=".csv,.txt" onchange="loadCSV(this)">
+  <span class="csvst" id="csvSt">HistData MT4 format supported</span>
+  <div class="csvrng" id="csvrng" style="display:none">
+    <select class="csvsel" id="csvEvt"><option value="">── Select Event ──</option></select>
+    <select class="csvsel" id="csvSpd">
+      <option value="2000">🐢Slow</option>
+      <option value="500" selected>▶Normal</option>
+      <option value="100">⚡Fast</option>
+      <option value="30">🔥Turbo</option>
+    </select>
+    <button class="csvbtn" id="csvPlayBtn" onclick="playCSV()" disabled>▶ Play</button>
+    <button class="csvbtn" style="background:#333" onclick="stopCSV()">■ Stop</button>
+  </div>
+  <div id="rangerow" style="display:none;gap:5px;align-items:center;flex-wrap:wrap;width:100%;margin-top:3px">
+    <span class="bar-label">Range:</span>
+    <input class="csvsel" id="rangeFrom" type="text" placeholder="YYYYMMDD" style="width:88px" onchange="applyRange()">
+    <span class="bar-label">→</span>
+    <input class="csvsel" id="rangeTo" type="text" placeholder="YYYYMMDD" style="width:88px" onchange="applyRange()">
+    <button class="xbtn" id="loopBtn" onclick="toggleLoop()">🔁 Loop: OFF</button>
+    <span class="bar-label" id="rangeInfo" style="color:var(--dim)"></span>
+  </div>
+</div>
+
+<script>
+// ─── TIMEFRAME DEFINITIONS ───
+const TFS = [
+  {lb:'1min',  m:1,   n:60},
+  {lb:'2min',  m:2,   n:60},
+  {lb:'3min',  m:3,   n:60},
+  {lb:'5min',  m:5,   n:60},
+  {lb:'10min', m:10,  n:60},
+  {lb:'15min', m:15,  n:60},
+  {lb:'20min', m:20,  n:50},
+  {lb:'30min', m:30,  n:50},
+  {lb:'1H',   m:60,  n:48},
+  {lb:'2H',   m:120, n:48},
+  {lb:'4H',   m:240, n:40},
+  {lb:'Daily', m:480, n:30},
+  {lb:'Weekly', m:2400,n:20},
+  {lb:'Monthly', m:9600,n:12},
+];
+const DEFAULTS = [10,7,3,0]; // 1H,30m,5m,1m
+let panelTF  = [...DEFAULTS];
+let panelMA  = [[5,13,25],[5,15,30],[7,21,42],[7,21,42]];
+let panelVis = [[1,1,1],[1,1,1],[1,1,1],[1,1,1]];
+let panelMode = ['normal','normal','normal','normal']; // 'normal' or 'hinkua'
+
+// Init TF selectors
+for(let pi=0;pi<4;pi++){
+  const sel = document.getElementById('tf'+pi);
+  TFS.forEach((t,i)=>{
+    const o=document.createElement('option');
+    o.value=i; o.textContent=t.lb;
+    if(i===DEFAULTS[pi]) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+
+function setTF(pi,v){panelTF[pi]=v;saveSettings();}
+
+function toggleMode(pi){
+  panelMode[pi] = panelMode[pi]==='normal'?'hinkua':'normal';
+  const btn=document.getElementById('mode'+pi);
+  if(btn){
+    const isH=panelMode[pi]==='hinkua';
+    btn.textContent=isH?'👁 Hinkua':'📊 Normal';
+    btn.classList.toggle('hinkua',isH);
+  }
+}
+
+// ─── HINKUA TRANSFORM ───
+function hinkuaTransform(candles){
+  if(!candles.length)return candles;
+  const recent=candles.slice(-50);
+  let maxH=recent[0].h,minL=recent[0].l;
+  for(const c of recent){if(c.h>maxH)maxH=c.h;if(c.l<minL)minL=c.l;}
+  const mid=(maxH+minL)/2;
+  return candles.map(c=>({
+    o:2*mid-c.o, h:2*mid-c.l, l:2*mid-c.h, c:2*mid-c.c
+  }));
+}
+
+// ─── BOLLINGER BANDS ───
+function calcBB(candles,period=20,sigma=2){
+  const cl=candles.map(c=>c.c);
+  const up=[],mid=[],dn=[];
+  for(let i=0;i<cl.length;i++){
+    if(i<period-1){up.push(null);mid.push(null);dn.push(null);continue;}
+    const sl=cl.slice(i-period+1,i+1);
+    const avg=sl.reduce((a,b)=>a+b,0)/period;
+    const std=Math.sqrt(sl.reduce((a,b)=>a+Math.pow(b-avg,2),0)/period);
+    mid.push(avg);up.push(avg+std*sigma);dn.push(avg-std*sigma);
+  }
+  return{up,mid,dn};
+}
+
+function toggleEye(pi,mi){
+  panelVis[pi][mi]=panelVis[pi][mi]?0:1;
+  const btn=document.getElementById('me'+pi+mi);
+  btn.classList.toggle('off',!panelVis[pi][mi]);
+}
+
+function getMA(pi,mi){
+  return Math.max(1,parseInt(document.getElementById('ma'+pi+mi).value)||1);
+}
+
+// ─── SCENARIOS ───
+const SCENS = {
+  normal: {tr:0.00002, vol:0.00025},
+  fake:   {tr:0.0004,  vol:0.0007},
+  panic:  {tr:-0.001,  vol:0.0018},
+  lehman: {tr:-0.0014, vol:0.0022},
+  intv:   {tr:0.002,   vol:0.0035},
+};
+let scen = SCENS.normal;
+
+function setScen(k){
+  scen=SCENS[k];
+  document.querySelectorAll('[id^="s"]').forEach(b=>{
+    if(['sn','sf','sp','sl','si'].includes(b.id)) b.classList.remove('on');
+  });
+  const map={normal:'sn',fake:'sf',panic:'sp',lehman:'sl',intv:'si'};
+  if(map[k]) document.getElementById(map[k]).classList.add('on');
+}
+
+// ─── PRICE ENGINE ───
+let prices=[]; // master 1-tick prices (sim) or closes from CSV
+let buf1m=[];  // 1-min OHLC (CSV mode)
+let pairName='USD/JPY';
+let dec=3;
+let pipU=0.01;
+
+function fmt(p){return p.toFixed(dec);}
+
+function initSim(){
+  prices=[];
+  let p=142.0;
+  // Need enough for weekly chart: 2400 ticks * 20 candles = 48000
+  // Use 50000 initial prices with gentle random walk
+  for(let i=0;i<50000;i++){
+    p+=(Math.random()-0.5)*0.00025;
+    // Keep price in realistic range
+    if(p>145)p-=0.01;
+    if(p<139)p+=0.01;
+    prices.push(p);
+  }
+}
+
+function simTick(){
+  // Add 30 micro-ticks = 1 sim-minute
+  for(let i=0;i<30;i++){
+    const last=prices[prices.length-1];
+    prices.push(last+scen.tr*0.1+(Math.random()-0.5)*scen.vol*0.3);
+  }
+  if(prices.length>80000)prices.splice(0,30);
+}
+
+// ─── CANDLE BUILDER ───
+function buildSim(tfIdx){
+  const tf=TFS[tfIdx];
+  const TICKS_PER_MIN=30; // 30 price points = 1 sim-minute
+  const ticks=tf.m*TICKS_PER_MIN;
+  const n=tf.n;
+  const end=prices.length;
+  const res=[];
+  for(let i=n;i>=0;i--){
+    const si=end-(i+1)*ticks;
+    const ei=end-i*ticks;
+    if(si<0)continue;
+    const sl=prices.slice(Math.max(0,si),Math.max(1,ei));
+    if(!sl.length)continue;
+    res.push({o:sl[0],h:Math.max(...sl),l:Math.min(...sl),c:sl[sl.length-1]});
+  }
+  return res;
+}
+
+function buildCSV(tfIdx){
+  const tf=TFS[tfIdx];
+  const pm=tf.m;
+  const n=tf.n;
+  if(!buf1m.length)return[];
+  const res=[];
+  const total=pm*n;
+  const start=Math.max(0,buf1m.length-total);
+  const use=buf1m.slice(start);
+  for(let i=0;i+pm<=use.length;i+=pm){
+    const sl=use.slice(i,i+pm);
+    res.push({o:sl[0].o,h:Math.max(...sl.map(c=>c.h)),l:Math.min(...sl.map(c=>c.l)),c:sl[sl.length-1].c});
+  }
+  const rem=use.length%pm;
+  if(rem>0){
+    const sl=use.slice(use.length-rem);
+    res.push({o:sl[0].o,h:Math.max(...sl.map(c=>c.h)),l:Math.min(...sl.map(c=>c.l)),c:sl[sl.length-1].c});
+  }
+  return res.slice(-n);
+}
+
+function getCandles(pi){
+  return csvData.length>0 ? buildCSV(panelTF[pi]) : buildSim(panelTF[pi]);
+}
+
+// ─── MA CALC ───
+function calcMA(candles,period){
+  const cl=candles.map(c=>c.c);
+  return cl.map((_,i)=>{
+    if(i<period-1)return null;
+    return cl.slice(i-period+1,i+1).reduce((a,b)=>a+b,0)/period;
+  });
+}
+
+function calcAngle(ma,n=5){
+  const v=ma.filter(x=>x!==null);
+  if(v.length<2)return 0;
+  const sl=v.slice(-Math.min(n,v.length));
+  const rise=sl[sl.length-1]-sl[0];
+  let h=sl[0],l=sl[0];
+  for(const x of sl){if(x>h)h=x;if(x<l)l=x;}
+  const range=(h-l)||0.0001;
+  const norm=rise/range;
+  return Math.round(Math.atan(norm)*180/Math.PI);
+}
+
+// ─── DRAW ───
+function drawPanel(pi){
+  const cv=document.getElementById('cv'+pi);
+  const panel=cv.parentElement;
+  const ph=panel.querySelector('.ph');
+  const mah=panel.querySelector('.mah');
+  const W=panel.clientWidth;
+  const hdrH=(ph?ph.clientHeight:0)+(mah?mah.clientHeight:0);
+  const H=panel.clientHeight-hdrH;
+  if(W<10||H<10)return;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+
+  let candles=getCandles(pi);
+  const isHinkua=panelMode[pi]==='hinkua';
+  if(isHinkua&&candles.length) candles=hinkuaTransform(candles);
+  if(!candles.length){
+    ctx.fillStyle=bgColor();ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(255,255,255,0.15)';ctx.font='11px Share Tech Mono';
+    ctx.textAlign='center';ctx.fillText('Waiting for data...',W/2,H/2);
+    ctx.textAlign='left';return;
+  }
+
+  // Price range
+  const allP=candles.flatMap(c=>[c.h,c.l]);
+  const mnP=Math.min(...allP), mxP=Math.max(...allP);
+  const pad=Math.max((mxP-mnP)*0.12,0.0005);
+  const pMin=mnP-pad, pMax=mxP+pad, pRng=pMax-pMin;
+  const py=p=>Math.round(H-16-((p-pMin)/pRng)*(H-22));
+
+  // Background
+  ctx.fillStyle=bgColor();ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle=gridColor();ctx.lineWidth=1;
+  const priceW=48;
+  for(let g=0;g<5;g++){
+    const y=H-16-(g/4)*(H-22);
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-priceW,y);ctx.stroke();
+    ctx.fillStyle=textColor();ctx.font='9px Share Tech Mono';
+    ctx.fillText((pMin+g/4*pRng).toFixed(dec),W-priceW+2,y-2);
+  }
+
+  const n=candles.length;
+  const gap=Math.max(3,Math.floor((W-priceW)/n));
+  const cw=Math.max(1,gap-2);
+  const lp=4;
+
+  // MAs
+  const maC=['#00ff88','#ffd700','#ff8844'];
+  for(let mi=0;mi<3;mi++){
+    if(!panelVis[pi][mi])continue;
+    const p=getMA(pi,mi);
+    const ma=calcMA(candles,p);
+    ctx.strokeStyle=maC[mi];ctx.lineWidth=1.3;
+    ctx.beginPath();let st=false;
+    ma.forEach((v,i)=>{
+      if(v===null)return;
+      const x=lp+i*gap+gap/2,y=py(v);
+      if(!st){ctx.moveTo(x,y);st=true;}else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  }
+
+  // Bollinger Bands
+  const bb=calcBB(candles,20,2);
+  const bbConfig=[
+    [bb.up,'rgba(255,215,0,0.45)',1.5,[]],
+    [bb.mid,'rgba(255,215,0,0.2)',1.0,[4,4]],
+    [bb.dn,'rgba(255,215,0,0.45)',1.5,[]],
+  ];
+  bbConfig.forEach(([arr,col,lw,dash])=>{
+    ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.setLineDash(dash);
+    ctx.beginPath();let st=false;
+    arr.forEach((v,i)=>{
+      if(v===null)return;
+      const x=lp+i*gap+gap/2,y=py(v);
+      if(!st){ctx.moveTo(x,y);st=true;}else ctx.lineTo(x,y);
+    });
+    ctx.stroke();ctx.setLineDash([]);
+  });
+
+  // Candles
+  const isLight=document.body.classList.contains('light');
+  const cUp=isHinkua?'#cc88ff':(isLight?'#0055cc':'#4da6ff');
+  const cDn=isHinkua?'#cc44ff':(isLight?'#cc0022':'#ff4466');
+  candles.forEach((c,i)=>{
+    const x=lp+i*gap+gap/2;
+    const up=c.c>=c.o;
+    ctx.strokeStyle=up?cUp:cDn;
+    ctx.fillStyle=up?cUp:cDn;
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,py(c.h));ctx.lineTo(x,py(c.l));ctx.stroke();
+    const bt=py(Math.max(c.o,c.c)),bb=py(Math.min(c.o,c.c)),bh=Math.max(1,bb-bt);
+    if(up)ctx.strokeRect(x-cw/2,bt,cw,bh);
+    else ctx.fillRect(x-cw/2,bt,cw,bh);
+  });
+
+  // Current price line
+  const last=candles[candles.length-1].c;
+  const ly=py(last);
+  ctx.strokeStyle='rgba(255,215,0,0.4)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(0,ly);ctx.lineTo(W-priceW,ly);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Price tag
+  const pt=document.getElementById('pt'+pi);
+  pt.textContent=fmt(last);
+  pt.style.top=Math.max(hdrH+2,Math.min(hdrH+H-18,hdrH+ly-8))+'px';
+
+  // Angle
+  const ma0=calcMA(candles,getMA(pi,0));
+  const ang=calcAngle(ma0);
+  const ac=ang>5?'#00ff88':ang<-5?'#ff4466':'#ffd700';
+  const ar=ang>10?'↑':ang>3?'↗':ang<-10?'↓':ang<-3?'↘':'→';
+  document.getElementById('ang'+pi).innerHTML=
+    `<span style="color:${ac}">${ar}${ang>0?'+':''}${ang}°</span>`;
+
+  return ang;
+}
+
+// ─── HCS ───
+function calcHCS(angles){
+  if(!angles.length)return 0;
+  const ref=Math.sign(angles[0])||1;
+  const S1=angles.filter(a=>Math.sign(a||0)===ref).length/angles.length;
+  const S3=angles.every(a=>a>0)||angles.every(a=>a<0)?1.0:S1*0.7;
+  const abs=angles.map(a=>Math.abs(a));
+  const srt=[...abs].sort((a,b)=>b-a);
+  const avg=abs.reduce((a,b)=>a+b,0)/(abs.length||1);
+  const variance=abs.reduce((a,b)=>a+(b-avg)**2,0)/(abs.length||1);
+  const S2=1/(1+variance*0.1);
+  return Math.min(1,0.4*S1+0.3*S2+0.3*S3);
+}
+
+function updateAnalyzer(){
+  const angles=[];
+  for(let pi=0;pi<4;pi++){
+    const cv=document.getElementById('cv'+pi);
+    const panel=cv.parentElement;
+    const ph=panel.querySelector('.ph');
+    const mah=panel.querySelector('.mah');
+    const hdrH=(ph?ph.clientHeight:0)+(mah?mah.clientHeight:0);
+    if(panel.clientHeight-hdrH<10){angles.push(0);continue;}
+    const candles=getCandles(pi);
+    if(!candles.length){angles.push(0);continue;}
+    const ma=calcMA(candles,getMA(pi,0));
+    angles.push(calcAngle(ma));
+  }
+  const hcs=calcHCS(angles);
+  const panicPct=Math.round(hcs*88+5);
+  const fakePct=100-panicPct;
+  const hcsCol=hcs>0.7?'#ff4466':hcs>0.4?'#ffd700':'#00ff88';
+  document.getElementById('hcsDisp').innerHTML=
+    `<span style="color:${hcsCol}">HCS: ${hcs.toFixed(2)}</span>`;
+  const TFL=['4H','30m','5m','1m'];
+  const tfLabels=panelTF.map(i=>TFS[i].lb);
+  document.getElementById('achips').innerHTML=angles.map((a,i)=>{
+    const c=a>5?'#00ff88':a<-5?'#ff4466':'#ffd700';
+    const ar=a>10?'↑':a>3?'↗':a<-10?'↓':a<-3?'↘':'→';
+    return `<div class="ac" style="border-color:${c}44;color:${c}">${tfLabels[i]} ${ar}${a>0?'+':''}${a}°</div>`;
+  }).join('');
+  document.getElementById('pfake').textContent=`🎣 ${fakePct}%`;
+  document.getElementById('ppanic').textContent=`💥 ${panicPct}%`;
+  // Update HCS history
+  HCS_HISTORY.push(hcs);
+  if(HCS_HISTORY.length>HCS_MAX)HCS_HISTORY.shift();
+  drawHCSGraph();
+}
+
+// ─── SPREAD ───
+let sprd=0.3;
+function setSprd(v){
+  sprd=v;
+  document.getElementById('sprdInp').value=v;
+  document.querySelectorAll('[id^="sp"]').forEach(b=>{
+    if(['sp03','sp10','sp30','sp100','sp300'].includes(b.id))b.classList.remove('on');
+  });
+  const map={0.3:'sp03',1.0:'sp10',3.0:'sp30',10.0:'sp100',30.0:'sp300'};
+  if(map[v])document.getElementById(map[v]).classList.add('on');
+  updateBidAsk();
+}
+function updateBidAsk(){
+  const mid=prices.length?prices[prices.length-1]:142.0;
+  const half=sprd*pipU/2;
+  document.getElementById('bidV').textContent=fmt(mid-half);
+  document.getElementById('askV').textContent=fmt(mid+half);
+  const col=sprd>=10?'var(--danger)':sprd>=3?'#ff8800':'var(--gold)';
+  document.getElementById('sprdLive').textContent=`↔${sprd}pips`;
+  document.getElementById('sprdLive').style.color=col;
+}
+
+// ─── LAYOUT ───
+function setLayout(k){
+  const g=document.getElementById('grid');
+  g.className='grid '+k;
+  ['ll1','ll2h','ll2v','ll3','ll4'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  document.getElementById('ll'+k).classList.add('on');
+}
+
+// ─── PLAYBACK (simulation) ───
+let playing=false;
+let spdPct=100;
+let simTimer=null;
+// Base: 1 sim-candle per second at 100%
+// 1 sim "candle" = 1 tick added every (1000ms / speed%)
+function getSimInterval(){ return Math.round(1000/(spdPct/100)); }
+function getCsvInterval(){ return Math.round(500/(spdPct/100)); }
+
+function togglePlay(){
+  if(csvData.length){
+    if(csvTimer){
+      // Currently playing → pause
+      clearInterval(csvTimer);csvTimer=null;
+      csvPaused=true;
+      document.getElementById('playBtn').textContent='▶ Play';
+    } else if(csvPaused){
+      // Paused → resume from current position
+      csvTimer=setInterval(advCSV,getCsvInterval());
+      csvPaused=false;
+      document.getElementById('playBtn').textContent='⏸ Stop';
+    } else {
+      // Stopped → play from start
+      playCSV();
+    }
+    return;
+  }
+  playing=!playing;
+  document.getElementById('playBtn').textContent=playing?'⏸ Stop':'▶ Play';
+  if(playing){
+    simTimer=setInterval(simTick, getSimInterval());
+  } else {
+    clearInterval(simTimer);simTimer=null;
+  }
+}
+
+function setSpd(pct){
+  spdPct=pct;
+  ['s25','s50','s75','s100','s125','s150'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  document.getElementById('s'+pct).classList.add('on');
+  if(simTimer){clearInterval(simTimer);simTimer=setInterval(simTick,getSimInterval());}
+  if(csvTimer){clearInterval(csvTimer);csvTimer=setInterval(advCSV,getCsvInterval());}
+}
+
+function seek(mins){
+  if(csvData.length){seekCSV(mins);return;}
+  const ticks=Math.abs(mins)*2;
+  if(mins<0){if(prices.length>ticks)prices.splice(-ticks);}
+  else{for(let i=0;i<ticks;i++)simTick();}
+}
+
+// ─── RANGE & LOOP ───
+function applyRange(){
+  const from=document.getElementById('rangeFrom').value.replace(/-/g,'').trim();
+  const to=document.getElementById('rangeTo').value.replace(/-/g,'').trim();
+  let startIdx=0,endIdx=csvData.length;
+  if(from&&from.length>=8){
+    const tgt=parseInt(from);
+    for(let i=0;i<csvData.length;i++){
+      if(parseInt(csvData[i].dt.substring(0,8))>=tgt){startIdx=i;break;}
+    }
+  }
+  if(to&&to.length>=8){
+    const tgt=parseInt(to);
+    for(let i=csvData.length-1;i>=0;i--){
+      if(parseInt(csvData[i].dt.substring(0,8))<=tgt){endIdx=i+1;break;}
+    }
+  }
+  csvLoopStart=startIdx;
+  csvLoopEnd=endIdx;
+  const bars=endIdx-startIdx;
+  document.getElementById('rangeInfo').textContent=
+    bars>0?`${bars.toLocaleString()} bars selected`:'';
+  // Update event dropdown start position
+  const evtSel=document.getElementById('csvEvt');
+  if(evtSel.value==='')evtSel.value='';
+}
+
+function toggleLoop(){
+  csvLoopEnabled=!csvLoopEnabled;
+  document.getElementById('loopBtn').textContent='🔁 Loop: '+(csvLoopEnabled?'ON':'OFF');
+  document.getElementById('loopBtn').classList.toggle('on',csvLoopEnabled);
+}
+
+// ─── CSV ───
+let csvData=[];
+let csvIdx=0;
+let csvTimer=null;
+let csvPaused=false;
+let csvLoopStart=0;
+let csvLoopEnd=0;
+let csvLoopEnabled=false;
+
+const EVENTS={
+  '20080915':{lb:'Lehman Collapse 2008/9/15'},
+  '20081024':{lb:'JPY Peak 2008/10/24'},
+  '20110311':{lb:'Tohoku Earthquake 2011/3/11'},
+  '20110317':{lb:'G7 Coordinated Intervention 2011/3/17'},
+  '20111031':{lb:'Unilateral Intervention 2011/10/31'},
+  '20130404':{lb:'Kuroda Bazooka 2013/4/4'},
+  '20130523':{lb:'Bernanke Shock 2013/5/23'},
+  '20200316':{lb:'COVID Shock 2020/3/16'},
+  '20220922':{lb:'BOJ Intervention① 2022/9/22'},
+  '20221021':{lb:'BOJ Intervention② 2022/10/21'},
+};
+
+function loadCSV(inp){
+  const file=inp.files[0];if(!file)return;
+  const st=document.getElementById('csvSt');
+  st.textContent='Loading...';st.className='csvst';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      csvData=parseCSV(e.target.result);
+      if(!csvData.length)throw new Error('No data found');
+      // Detect pair from filename
+      const fn=file.name.toUpperCase();
+      const pairs=[['EURUSD','EUR/USD'],['GBPUSD','GBP/USD'],['USDJPY','USD/JPY'],
+        ['AUDUSD','AUD/USD'],['USDCHF','USD/CHF'],['USDCAD','USD/CAD'],
+        ['NZDUSD','NZD/USD'],['EURJPY','EUR/JPY'],['GBPJPY','GBP/JPY'],
+        ['AUDJPY','AUD/JPY'],['EURGBP','EUR/GBP'],['XAUUSD','XAU/USD']];
+      pairName='FX';
+      for(const [k,v] of pairs){if(fn.includes(k)){pairName=v;break;}}
+      document.getElementById('pairLabel').textContent=pairName;
+      // Detect decimals
+      const sp=csvData[Math.floor(csvData.length/2)].c;
+      dec=sp>=10?3:5;
+      pipU=pairName.includes('JPY')?0.01:0.0001;
+      // Populate event selector
+      const sel=document.getElementById('csvEvt');
+      sel.innerHTML='<option value="">── Select Event ──</option>';
+      Object.entries(EVENTS).forEach(([date,ev])=>{
+        const tgt=parseInt(date);
+        let best=-1,bestDiff=Infinity;
+        csvData.forEach((d,i)=>{
+          const d8=parseInt(d.dt.substring(0,8));
+          const diff=Math.abs(d8-tgt);
+          if(diff<bestDiff&&diff<=7){bestDiff=diff;best=i;}
+        });
+        if(best>=0){
+          const o=document.createElement('option');
+          o.value=best;o.textContent=ev.lb;
+          sel.appendChild(o);
+        }
+      });
+      // Full period
+      const oAll=document.createElement('option');
+      oAll.value='0';oAll.textContent='Full Period';
+      sel.insertBefore(oAll,sel.children[1]);
+
+      const first=csvData[0].dt,last=csvData[csvData.length-1].dt;
+      st.textContent=`✅ ${pairName} ${csvData.length.toLocaleString()} bars (${first.substring(0,8)} - ${last.substring(0,8)})`;
+      st.className='csvst ok';
+      document.getElementById('csvrng').style.display='flex';
+      document.getElementById('rangerow').style.display='flex';
+      document.getElementById('csvPlayBtn').disabled=false;
+    }catch(err){
+      st.textContent='❌ '+err.message;st.className='csvst err';
+    }
+  };
+  reader.readAsText(file,'latin-1'); // latin-1 handles both UTF-8 and Shift-JIS ASCII ranges
+}
+
+function parseCSV(text){
+  const lines=text.split(/\r?\n/);
+  const res=[];
+  for(const line of lines){
+    const t=line.trim();
+    if(!t)continue;
+    // Skip header/comment lines (HistData status report lines)
+    if(t.startsWith('H')||t.startsWith('F')||t.startsWith('G')||
+       t.startsWith('A')||t.startsWith('M')||t.startsWith('<'))continue;
+    // HistData format: "20080915 093000,104.35,104.40,104.30,104.35,150"
+    // Replace first space (between date and time) with comma
+    const normalized=t.replace(/^(\d{8}) /,'$1,');
+    const parts=normalized.split(',');
+    if(parts.length<5)continue;
+    let dt,o,h,l,c,v=0;
+    if(parts.length>=6){
+      // Check if parts[1] is a time (6 digits) or a price
+      const isTime = parts.length>=7 && /^\d{6}$/.test(parts[1]);
+      if(isTime){
+        // Format: date, time, o, h, l, c, v
+        dt=parts[0]+parts[1];
+        o=parseFloat(parts[2]);h=parseFloat(parts[3]);
+        l=parseFloat(parts[4]);c=parseFloat(parts[5]);
+      } else {
+        // Format: datetime(14chars), o, h, l, c, v
+        dt=parts[0];
+        o=parseFloat(parts[1]);h=parseFloat(parts[2]);
+        l=parseFloat(parts[3]);c=parseFloat(parts[4]);
+      }
+    } else continue;
+    if(isNaN(o)||isNaN(c)||c===0)continue;
+    res.push({dt,o,h,l,c});
+  }
+  return res;
+}
+
+function playCSV(){
+  stopCSV();
+  const sel=document.getElementById('csvEvt');
+  const evtIdx=sel.value===''?(csvLoopEnabled&&csvLoopStart>0?csvLoopStart:0):parseInt(sel.value);
+  csvIdx=Math.max(0,evtIdx-120);
+  // Apply range if set
+  if(csvLoopEnabled&&csvLoopStart>0) csvIdx=Math.max(0,csvLoopStart-120);
+  // Preload buffer
+  buf1m=[];prices=[];
+  const pre=Math.min(12000,csvIdx);
+  const preStart=Math.max(0,csvIdx-pre);
+  for(let i=preStart;i<csvIdx;i++){
+    const d=csvData[i];
+    buf1m.push({o:d.o,h:d.h,l:d.l,c:d.c,dt:d.dt});
+    prices.push(d.c);
+  }
+  // If starting from beginning, add at least the first candle
+  if(!prices.length&&csvData.length){
+    prices.push(csvData[0].c);
+    buf1m.push({o:csvData[0].o,h:csvData[0].h,l:csvData[0].l,c:csvData[0].c,dt:csvData[0].dt});
+  }
+  const spd=parseInt(document.getElementById('csvSpd').value)||500;
+  csvTimer=setInterval(advCSV,getCsvInterval());
+  document.getElementById('playBtn').textContent='⏸ Stop';
+  playing=true;
+}
+
+function advCSV(){
+  const loopEnd=csvLoopEnabled&&csvLoopEnd>0?csvLoopEnd:csvData.length;
+  if(csvIdx>=loopEnd){
+    if(csvLoopEnabled&&csvLoopStart>=0){
+      // Loop: jump back to start position
+      csvIdx=csvLoopStart;
+      buf1m=[];prices=[];
+      const pre=Math.min(12000,csvIdx);
+      for(let i=Math.max(0,csvIdx-pre);i<csvIdx;i++){
+        const d=csvData[i];
+        buf1m.push({o:d.o,h:d.h,l:d.l,c:d.c,dt:d.dt});
+        prices.push(d.c);
+      }
+      return;
+    }
+    stopCSV();return;
+  }
+  const d=csvData[csvIdx];
+  buf1m.push({o:d.o,h:d.h,l:d.l,c:d.c,dt:d.dt});
+  if(buf1m.length>12000)buf1m.shift();
+  prices.push(d.c);
+  if(prices.length>80000)prices.shift();
+  csvIdx++;
+  if(csvIdx%5===0){
+    const dt=d.dt;
+    const s=`${dt.substring(0,4)}/${dt.substring(4,6)}/${dt.substring(6,8)} ${dt.length>=12?dt.substring(8,10):'--'}:${dt.length>=14?dt.substring(10,12):'--'}  ${fmt(d.c)}`;
+    document.getElementById('csvSt').textContent=s;
+    document.getElementById('playhead').textContent=s;
+  }
+}
+
+function stopCSV(){
+  if(csvTimer){clearInterval(csvTimer);csvTimer=null;}
+  if(simTimer){clearInterval(simTimer);simTimer=null;}
+  playing=false;
+  document.getElementById('playBtn').textContent='▶ Play';
+}
+
+function seekCSV(mins){
+  const wasPlaying=!!csvTimer;
+  stopCSV();
+  csvIdx=Math.max(0,Math.min(csvData.length-1,csvIdx+mins));
+  buf1m=[];prices=[];
+  const pre=Math.min(12000,csvIdx);
+  for(let i=Math.max(0,csvIdx-pre);i<csvIdx;i++){
+    const d=csvData[i];
+    buf1m.push({o:d.o,h:d.h,l:d.l,c:d.c,dt:d.dt});
+    prices.push(d.c);
+  }
+  if(!prices.length&&csvData.length)prices.push(csvData[0].c);
+  if(wasPlaying)playCSV();
+}
+
+// ─── MAIN RENDER LOOP ───
+let frame=0;
+function render(){
+  frame++;
+  // Update price display
+  if(prices.length){
+    const cur=prices[prices.length-1];
+    const prev=prices[prices.length-2]||cur;
+    const chg=cur-prev;
+    const el=document.getElementById('priceMain');
+    el.textContent=fmt(cur);
+    el.style.color=chg>=0?'#4da6ff':'#ff4466';
+    const cel=document.getElementById('priceChg');
+    cel.textContent=(chg>=0?'▲+':'▼')+chg.toFixed(dec);
+    cel.style.color=chg>=0?'#4da6ff':'#ff4466';
+  }
+
+  // Draw all panels
+  for(let pi=0;pi<4;pi++) drawPanel(pi);
+
+  // Analyzer (every 4 frames)
+  if(frame%4===0) updateAnalyzer();
+
+  // BidAsk (every 6 frames)
+  if(frame%6===0) updateBidAsk();
+
+  requestAnimationFrame(render);
+}
+
+// ─── A: LOCALSTORAGE ───
+function saveSettings(){
+  try{
+    const s={
+      panelTF:[...panelTF],
+      panelMA:panelMA.map(a=>[...a]),
+      panelVis:panelVis.map(a=>[...a]),
+      sprd
+    };
+    localStorage.setItem('cv_settings',JSON.stringify(s));
+  }catch(e){}
+}
+
+function loadSettings(){
+  try{
+    const raw=localStorage.getItem('cv_settings');
+    if(!raw)return;
+    const s=JSON.parse(raw);
+    if(s.panelTF)s.panelTF.forEach((v,i)=>{
+      panelTF[i]=v;
+      const sel=document.getElementById('tf'+i);
+      if(sel)sel.value=v;
+    });
+    if(s.panelMA)s.panelMA.forEach((ma,pi)=>ma.forEach((v,mi)=>{
+      panelMA[pi][mi]=v;
+      const inp=document.getElementById('ma'+pi+mi);
+      if(inp)inp.value=v;
+    }));
+    if(s.panelVis)s.panelVis.forEach((vis,pi)=>vis.forEach((v,mi)=>{
+      panelVis[pi][mi]=v;
+      const btn=document.getElementById('me'+pi+mi);
+      if(btn)btn.classList.toggle('off',!v);
+    }));
+    if(s.sprd!=null)setSprd(s.sprd);
+  }catch(e){}
+}
+
+// Auto-save on changes
+document.querySelectorAll('.mi').forEach(inp=>inp.addEventListener('change',saveSettings));
+document.querySelectorAll('.meye').forEach(btn=>btn.addEventListener('click',()=>setTimeout(saveSettings,50)));
+
+// ─── B: NEWS TICKER ───
+const NEWS_BY_SCEN={
+  normal:[
+    'USD/JPY — Thin trading, lacking directional momentum',
+    'Fed official signals rates on hold',
+    'BOJ expected to maintain current policy',
+    'USD/JPY confined to narrow range around 142',
+  ],
+  fake:[
+    'Watch for short-term positioning — volume remains low',
+    'Algo trading surging — beware of false breakouts',
+    'Temporary price move, no trend reversal confirmed',
+    'Hedge fund profit-taking suspected',
+  ],
+  panic:[
+    '⚡ FLASH — Abnormal sell orders flooding the market',
+    '💥 Forced liquidations reported at multiple institutions',
+    '⚠️ Margin ratio deteriorating — cascading stop-outs feared',
+    '🔴 VIX surging — risk-off accelerating',
+  ],
+  lehman:[
+    '🚨 Major financial institution in crisis',
+    '💀 Systemic risk spreading across financial markets',
+    'Liquidity drying up in interbank markets',
+    'Central banks in emergency talks',
+  ],
+  intv:[
+    '🏦 MOF / BOJ conduct forex intervention',
+    'Government source: "Will firmly address speculative yen selling"',
+    '⚡ USD selling / JPY buying intervention observed — chaos in markets',
+    'Intervention reportedly in trillions of yen — awaiting details',
+  ],
+};
+let currentScenKey='normal';
+let newsTimer=null;
+
+function updateTicker(scenKey){
+  currentScenKey=scenKey;
+  const news=NEWS_BY_SCEN[scenKey]||NEWS_BY_SCEN.normal;
+  const text=news.join('　　　　●　　　　')+' ';
+  document.getElementById('tickerText').textContent=text;
+  // Adjust speed by scenario
+  const dur=scenKey==='panic'||scenKey==='lehman'?15:
+            scenKey==='intv'?20:35;
+  document.getElementById('tickerText').style.animationDuration=dur+'s';
+}
+
+// Hook into setScen
+const _origSetScen=setScen;
+function setScen(k){
+  _origSetScen(k);
+  updateTicker(k);
+}
+
+// ─── B: HCS GRAPH ───
+const HCS_HISTORY=[];
+const HCS_MAX=120;
+
+function drawHCSGraph(){
+  const cv=document.getElementById('hcsCanvas');
+  const W=cv.parentElement.clientWidth-80;
+  const H=28;
+  if(W<10)return;
+  cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#080c12';ctx.fillRect(0,0,W,H);
+
+  if(HCS_HISTORY.length<2)return;
+
+  // Threshold lines
+  ctx.strokeStyle='rgba(255,34,68,0.3)';ctx.lineWidth=1;ctx.setLineDash([2,2]);
+  ctx.beginPath();ctx.moveTo(0,H-(0.7*H));ctx.lineTo(W,H-(0.7*H));ctx.stroke();
+  ctx.setLineDash([]);
+
+  // HCS line
+  const n=HCS_HISTORY.length;
+  ctx.beginPath();
+  HCS_HISTORY.forEach((v,i)=>{
+    const x=(i/(HCS_MAX-1))*W;
+    const y=H-(v*H*0.9)-2;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  const last=HCS_HISTORY[HCS_HISTORY.length-1];
+  ctx.strokeStyle=last>0.7?'#ff4466':last>0.4?'#ffd700':'#00ff88';
+  ctx.lineWidth=1.5;ctx.stroke();
+
+  // Alert
+  const alertEl=document.getElementById('hcsAlert');
+  if(alertEl)alertEl.style.display=last>=0.8?'block':'none';
+
+  // Alert sound (Web Audio)
+  if(last>=0.8&&HCS_HISTORY.length>2){
+    const prev=HCS_HISTORY[HCS_HISTORY.length-2];
+    if(prev<0.8)playAlert();
+  }
+}
+
+let audioCtx=null;
+function playAlert(){
+  try{
+    if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.connect(gain);gain.connect(audioCtx.destination);
+    osc.frequency.value=880;
+    gain.gain.setValueAtTime(0.3,audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.4);
+    osc.start();osc.stop(audioCtx.currentTime+0.4);
+  }catch(e){}
+}
+
+
+
+// ─── OBSERVATION LOG ───
+let logEntries=[];
+let logRating=0;
+try{const s=localStorage.getItem('fx_obs_log');if(s)logEntries=JSON.parse(s);updateLogCount();}catch(e){}
+
+let logEval='wait-right';
+function setEval(v){
+  logEval=v;
+  ['c','wr','wm','w'].forEach(k=>{
+    const b=document.getElementById('ev-'+k);
+    if(b)b.classList.toggle('on',false);
+  });
+  const map={correct:'c','wait-right':'wr','wait-miss':'wm',wrong:'w'};
+  const b=document.getElementById('ev-'+(map[v]||'wr'));
+  if(b)b.classList.add('on');
+}
+function setRating(n){logRating=n;}
+
+function getCurrentState(){
+  let angles=[0,0,0,0];
+  try{
+    for(let pi=0;pi<4;pi++){
+      try{
+        const cds=getCandles(pi);
+        if(cds.length){
+          const m=calcMA(cds,getMA(pi,0));
+          angles[pi]=calcAngle(m);
+        }
+      }catch(e){angles[pi]=0;}
+    }
+  }catch(e){}
+  const hcs=calcHCS(angles);
+  const pair=(document.getElementById('pairLabel')||{textContent:'FX'}).textContent;
+  const tfEl=document.getElementById('tf0');
+  const tf=tfEl?tfEl.options[tfEl.selectedIndex].text:'—';
+  const time=(document.getElementById('playhead')||{textContent:'—'}).textContent;
+  return{pair,tf,time,hcs,angles};
+}
+
+function saveLog(){
+  const note=(document.getElementById('logNote').value||'').trim();
+  const st=getCurrentState();
+  const entry={
+    id:Date.now(),
+    ts:new Date().toISOString(),
+    pair:st.pair,tf:st.tf,time:st.time,
+    hcs:st.hcs.toFixed(2),
+    angles:st.angles.map(a=>(a>0?'+':'')+a+'°').join(' '),
+    note:note||'—',rating:logRating,eval:logEval
+  };
+  logEntries.unshift(entry);
+  if(logEntries.length>200)logEntries.pop();
+  try{localStorage.setItem('fx_obs_log',JSON.stringify(logEntries));}catch(e){}
+  document.getElementById('logNote').value='';
+  logRating=0;logEval='neutral';
+  ['c','wr','wm','w'].forEach(k=>{const b=document.getElementById('ev-'+k);if(b)b.classList.remove('on');});
+  updateLogCount();
+  const btn=document.getElementById('saveLogBtn');
+  if(btn){btn.textContent='✓ Saved!';setTimeout(()=>btn.textContent='✚ Save',1200);}
+}
+
+function updateLogCount(){
+  const el=document.getElementById('logCount');
+  if(el)el.textContent=logEntries.length+' entries';
+}
+
+function showLogModal(){renderLogTable();document.getElementById('logModal').classList.add('show');}
+function hideLogModal(){document.getElementById('logModal').classList.remove('show');}
+
+function renderLogTable(){
+  const wrap=document.getElementById('logTableWrap');
+  if(!logEntries.length){wrap.innerHTML='<div class="log-empty">No entries yet.<br>Save observations to build your log.</div>';return;}
+  let html='<table class="log-table"><thead><tr><th>#</th><th>Time</th><th>Pair</th><th>HCS</th><th>Angles</th><th>Eval</th><th>Note</th></tr></thead><tbody>';
+  logEntries.forEach((e,i)=>{
+    const hc=parseFloat(e.hcs);
+    const hcc=hc>=0.7?'log-hcs-hi':hc>=0.4?'log-hcs-md':'log-hcs-lo';
+    const evalIcon=e.eval==='correct'?'✅':e.eval==='wrong'?'❌':e.eval==='wait-right'?'⏸✓':e.eval==='wait-miss'?'⏸?':'⏸✓';
+    html+=`<tr><td style="color:var(--dim)">${logEntries.length-i}</td><td style="color:var(--dim);font-size:0.5rem">${e.time}</td><td>${e.pair}<br><span style="color:var(--dim);font-size:0.5rem">${e.tf}</span></td><td class="${hcc}">${e.hcs}</td><td style="font-size:0.5rem;color:var(--dim)">${e.angles}</td><td style="text-align:center">${evalIcon}</td><td style="font-size:0.55rem">${e.note}</td></tr>`;
+  });
+  wrap.innerHTML=html+'</tbody></table>';
+}
+
+function exportLog(){
+  if(!logEntries.length)return;
+  const hdr='ID,Timestamp,Pair,TF,ChartTime,HCS,Angles,Eval,Note';
+  const rows=logEntries.map(e=>[e.id,e.ts,e.pair,e.tf,e.time,e.hcs,'"'+e.angles+'"',(e.eval||'neutral'),'"'+(e.note||'')+'"'].join(','));
+  const blob=new Blob([[hdr,...rows].join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='fx_observation_log.csv';a.click();
+}
+
+function clearLog(){
+  if(!confirm('Clear all log entries?'))return;
+  logEntries=[];
+  try{localStorage.removeItem('fx_obs_log');}catch(e){}
+  updateLogCount();renderLogTable();
+}
+
+
+// ─── THEME-AWARE COLORS ───
+function candleUp(){ return document.body.classList.contains('light')?'#0055cc':'#4da6ff'; }
+function candleDn(){ return document.body.classList.contains('light')?'#cc0022':'#ff4466'; }
+function bgColor(){  return document.body.classList.contains('light')?'#ffffff':'#0c1018'; }
+function gridColor(){ return document.body.classList.contains('light')?'rgba(0,0,0,0.06)':'rgba(255,255,255,0.04)'; }
+function textColor(){ return document.body.classList.contains('light')?'rgba(0,0,0,0.4)':'rgba(255,255,255,0.25)'; }
+
+// ─── THEME TOGGLE ───
+let isDark = true;
+function toggleTheme(){
+  isDark = !isDark;
+  document.body.classList.toggle('light', !isDark);
+  const btn = document.getElementById('themeBtn');
+  if(btn) btn.textContent = isDark ? '🌙' : '☀️';
+  try{ localStorage.setItem('cv_theme', isDark?'dark':'light'); }catch(e){}
+}
+// Load saved theme
+try{
+  const saved = localStorage.getItem('cv_theme');
+  if(saved === 'light'){ isDark=false; document.body.classList.add('light');
+    setTimeout(()=>{ const b=document.getElementById('themeBtn'); if(b)b.textContent='☀️'; },50);
+  }
+}catch(e){}
+
+// ─── START ───
+initSim();
+loadSettings();
+updateTicker('normal');
+render();
+</script>
+</body>
+</html>
